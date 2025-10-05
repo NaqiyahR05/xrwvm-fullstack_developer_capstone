@@ -4,6 +4,7 @@ from django.http import JsonResponse
 from .populate import initiate
 from django.contrib.auth import login, logout, authenticate
 from django.views.decorators.csrf import csrf_exempt
+from .restapis import get_request, analyze_review_sentiments, post_review
 import json
 import logging
 
@@ -22,6 +23,52 @@ def get_cars(request):
         })
 
     return JsonResponse({"CarModels": cars})
+
+def get_dealerships(request, state="All"):
+    """
+    Returns a list of all dealerships, or by state if provided
+    """
+    if state == "All":
+        endpoint = "/fetchDealers"
+    else:
+        endpoint = "/fetchDealers/" + state
+
+    dealerships = get_request(endpoint)
+    return JsonResponse({"status": 200, "dealers": dealerships})
+
+def get_dealer_details(request, dealer_id):
+    """
+    Returns details of a single dealer based on dealer_id
+    """
+    endpoint = f"/fetchDealer/{dealer_id}"
+    dealer = get_request(endpoint)
+    return JsonResponse({"status": 200, "dealer": dealer})
+
+def get_dealer_reviews(request, dealer_id):
+    """
+    Returns reviews for a dealer along with sentiment analysis
+    """
+    endpoint = f"/fetchReviews/dealer/{dealer_id}"
+    reviews = get_request(endpoint)
+
+    review_list = []
+
+    if reviews:
+        for review in reviews:
+            sentiment = analyze_review_sentiments(review.get("review", ""))
+            review_detail = {
+                "review": review.get("review", ""),
+                "name": review.get("name", ""),
+                "purchase": review.get("purchase", False),
+                "purchase_date": review.get("purchase_date", ""),
+                "car_make": review.get("car_make", ""),
+                "car_model": review.get("car_model", ""),
+                "car_year": review.get("car_year", ""),
+                "sentiment": sentiment.get("sentiment", "neutral") if sentiment else "neutral"
+            }
+            review_list.append(review_detail)
+
+    return JsonResponse({"status": 200, "reviews": review_list})
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -106,3 +153,20 @@ def add_review(request):
     # TODO: Add review logic
     return JsonResponse({"status": "Not implemented"}, status=501)
 
+def add_review(request):
+    """
+    Handles posting a dealer review.
+    Only authenticated users can post.
+    """
+    if not request.user.is_anonymous:
+        try:
+            data = json.loads(request.body)
+            response = post_review(data)
+            if response:
+                return JsonResponse({"status": 200, "message": "Review posted successfully"})
+            else:
+                return JsonResponse({"status": 500, "message": "Failed to post review"})
+        except Exception as e:
+            return JsonResponse({"status": 401, "message": f"Error in posting review: {e}"})
+    else:
+        return JsonResponse({"status": 403, "message": "Unauthorized"})

@@ -1,7 +1,8 @@
 # Uncomment the imports below before you add the function code
-# import requests
+import requests
 import os
 from dotenv import load_dotenv
+from .settings import backend_url
 
 load_dotenv()
 
@@ -13,10 +14,49 @@ sentiment_analyzer_url = os.getenv(
 
 # def get_request(endpoint, **kwargs):
 # Add code for get requests to back end
+def get_request(endpoint, **kwargs):
+    # Prepare URL parameters if any
+    params = ""
+    if kwargs:
+        for key, value in kwargs.items():
+            params += key + "=" + str(value) + "&"
+    
+    # Construct the full request URL
+    request_url = backend_url + endpoint
+    if params:
+        request_url += "?" + params.rstrip("&")
+    
+    print("GET from {}".format(request_url))
+    
+    try:
+        # Call GET method of requests library with URL and parameters
+        response = requests.get(request_url)
+        return response.json()
+    except Exception as e:
+        # If any error occurs
+        print("Network exception occurred: {}".format(e))
+        return None
 
 # def analyze_review_sentiments(text):
 # request_url = sentiment_analyzer_url+"analyze/"+text
 # Add code for retrieving sentiments
-
+def analyze_review_sentiments(text):
+    request_url = sentiment_analyzer_url+"analyze/"+text
+    try:
+        # Call get method of requests library with URL and parameters
+        response = requests.get(request_url)
+        return response.json()
+    except Exception as err:
+        print(f"Unexpected {err=}, {type(err)=}")
+        print("Network exception occurred")
 # def post_review(data_dict):
+def post_review(data_dict):
+    request_url = backend_url + "/insert_review"
+    try:
+        response = requests.post(request_url, json=data_dict)
+        print(response.json())
+        return response.json()
+    except Exception as e:
+        print(f"Network exception occurred: {e}")
+        return None
 # Add code for posting review
